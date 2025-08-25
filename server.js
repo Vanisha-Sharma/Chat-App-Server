@@ -51,6 +51,7 @@ app.use(
 // Routes Setup
 app.use("/api/status", (req, res) => res.send("Server is live"));
 app.use("/api/auth", userRouter);
+app.use("/api/users", userRouter); // ✅ Added users route
 app.use("/api/messages", messageRouter);
 
 // Connect to mongodb

@@ -3,7 +3,7 @@ import Message from "../models/Message.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, userSocketMap } from "../server.js";
 
-// Get all users except the logged in user
+// ✅ Get all users except logged in user
 export const getUsersForSidebar = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -11,29 +11,26 @@ export const getUsersForSidebar = async (req, res) => {
       "-password"
     );
 
-    // Count number of unseen messages
     const unseenMessages = {};
-    const promises = filteredUsers.map(async (user) => {
-      const messages = await Message.find({
-        senderId: user._id,
-        receiverId: userId,
-        seen: false,
-      });
-      if (messages.length > 0) {
-        unseenMessages[user._id] = messages.length;
-      }
-    });
-
-    await Promise.all(promises);
+    await Promise.all(
+      filteredUsers.map(async (user) => {
+        const count = await Message.countDocuments({
+          senderId: user._id,
+          receiverId: userId,
+          seen: false,
+        });
+        if (count > 0) unseenMessages[user._id] = count;
+      })
+    );
 
     res.json({ success: true, users: filteredUsers, unseenMessages });
   } catch (error) {
-    console.log(error.message);
+    console.log("Get Users Error:", error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Get all messages with a selected user
+// ✅ Get all messages with selected user
 export const getMessages = async (req, res) => {
   try {
     const { id: selectedUserId } = req.params;
@@ -44,34 +41,34 @@ export const getMessages = async (req, res) => {
         { senderId: myId, receiverId: selectedUserId },
         { senderId: selectedUserId, receiverId: myId },
       ],
-    });
+    }).sort({ createdAt: 1 });
 
-    // Mark messages as seen
+    // mark all as seen
     await Message.updateMany(
-      { senderId: selectedUserId, receiverId: myId },
-      { seen: true }
+      { senderId: selectedUserId, receiverId: myId, seen: false },
+      { $set: { seen: true } }
     );
 
     res.json({ success: true, messages });
   } catch (error) {
-    console.log(error.message);
+    console.log("Get Messages Error:", error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Mark single message as seen
+// ✅ Mark single message as seen
 export const markMessageAsSeen = async (req, res) => {
   try {
     const { id } = req.params;
     await Message.findByIdAndUpdate(id, { seen: true });
     res.json({ success: true });
   } catch (error) {
-    console.log(error.message);
+    console.log("Mark Message Error:", error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Send message to selected user
+// ✅ Send message (text + optional image)
 export const sendMessage = async (req, res) => {
   try {
     const { text, image } = req.body;
@@ -88,10 +85,10 @@ export const sendMessage = async (req, res) => {
       senderId,
       receiverId,
       text,
-      image: imageUrl,
+      image: imageUrl || null,
     });
 
-    // Emit new message to receiver if online
+    // emit socket event if receiver online
     const receiverSocketId = userSocketMap[receiverId];
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
@@ -99,7 +96,7 @@ export const sendMessage = async (req, res) => {
 
     res.json({ success: true, newMessage });
   } catch (error) {
-    console.log(error.message);
+    console.log("Send Message Error:", error.message);
     res.json({ success: false, message: error.message });
   }
 };

@@ -3,7 +3,7 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 
-// Sign up new User
+// Signup
 export const signup = async (req, res) => {
   const { fullName, email, password, bio } = req.body;
 
@@ -14,10 +14,7 @@ export const signup = async (req, res) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.json({
-        success: false,
-        message: "Account already exists",
-      });
+      return res.json({ success: false, message: "Account already exists" });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -44,7 +41,7 @@ export const signup = async (req, res) => {
   }
 };
 
-// Login existing User
+// Login
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -73,20 +70,19 @@ export const login = async (req, res) => {
   }
 };
 
-// Check if user is authenticated
+// Check auth
 export const checkAuth = (req, res) => {
   if (!req.user) {
     return res.json({ success: false, message: "Not authenticated" });
   }
-
   res.json({ success: true, user: req.user });
 };
 
-// Update user profile
+// Update profile
 export const updateProfile = async (req, res) => {
   try {
     const { profilePic, bio, fullName } = req.body;
-    const userId = req.user._id; // ✅ always use authenticated user _id
+    const userId = req.user._id;
     let updatedUser;
 
     if (!profilePic) {
@@ -109,5 +105,21 @@ export const updateProfile = async (req, res) => {
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
+  }
+};
+
+// ✅ Get all users (exclude logged-in user + password)
+export const getUsers = async (req, res) => {
+  try {
+    const loggedInUserId = req.user._id;
+    const users = await User.find({ _id: { $ne: loggedInUserId } }).select(
+      "-password"
+    );
+    res.status(200).json(users);
+  } catch (error) {
+    console.log(error.message);
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching users" });
   }
 };
